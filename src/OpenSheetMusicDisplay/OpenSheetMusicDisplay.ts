@@ -21,6 +21,7 @@ import { NoteEnum } from "..";
 import { AutoColorSet, GraphicalMusicPage } from "../MusicalScore";
 import jspdf = require("jspdf-yworks/dist/jspdf.min");
 import svg2pdf = require("svg2pdf.js/dist/svg2pdf.min");
+import { MusicPartManagerIterator } from "../MusicalScore/MusicParts";
 
 /**
  * The main class and control point of OpenSheetMusicDisplay.<br>
@@ -395,7 +396,7 @@ export class OpenSheetMusicDisplay {
         // alternative to if block: this.drawingsParameters.drawCursors = options.drawCursors !== false. No if, but always sets drawingParameters.
         // note that every option can be undefined, which doesn't mean the option should be set to false.
         if (options.drawHiddenNotes) {
-            this.drawingParameters.drawHiddenNotes = true;
+            this.drawingParameters.drawHiddenNotes = true; // not yet supported
         }
         if (options.drawCredits !== undefined) {
             this.drawingParameters.DrawCredits = options.drawCredits; // sets DrawComposer, DrawTitle, DrawSubtitle, DrawLyricist.
@@ -414,6 +415,11 @@ export class OpenSheetMusicDisplay {
         }
         if (options.drawPartNames !== undefined) {
             this.drawingParameters.DrawPartNames = options.drawPartNames; // indirectly writes to EngravingRules
+
+            // by default, disable part abbreviations too, unless set explicitly.
+            if (!options.drawPartAbbreviations) {
+                this.rules.RenderPartAbbreviations = options.drawPartNames;
+            }
         }
         if (options.drawPartAbbreviations !== undefined) {
             this.rules.RenderPartAbbreviations = options.drawPartAbbreviations;
@@ -675,9 +681,22 @@ export class OpenSheetMusicDisplay {
     public enableOrDisableCursor(enable: boolean): void {
         this.drawingParameters.drawCursors = enable;
         if (enable) {
+            // save previous cursor state
+            const hidden: boolean = this.cursor?.Hidden;
+            const previousIterator: MusicPartManagerIterator = this.cursor?.Iterator;
+
+            // create new cursor
             this.cursor = new Cursor(this.drawer.Backends[0].getInnerElement(), this);
             if (this.sheet && this.graphic) { // else init is called in load()
                 this.cursor.init(this.sheet.MusicPartManager, this.graphic);
+            }
+
+            // restore old cursor state
+            if (this.rules.RestoreCursorAfterRerender) {
+                this.cursor.hidden = hidden;
+                if (previousIterator) {
+                    this.cursor.iterator = previousIterator;
+                }
             }
         } else { // disable cursor
             if (!this.cursor) {

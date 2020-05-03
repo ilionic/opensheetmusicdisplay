@@ -137,8 +137,8 @@ export class Cursor {
       this.updateStyle(newWidth);
     }
     if (this.openSheetMusicDisplay.FollowCursor) {
-      const diff: number = this.cursorElement.getBoundingClientRect().top;
-      this.cursorElement.scrollIntoView({behavior: diff < 1000 ? "smooth" : "auto", block: "center"});
+      // const diff: number = this.cursorElement.getBoundingClientRect().top;
+      this.cursorElement.scrollIntoView({behavior: "auto", block: "center", inline: "center"});
     }
     // Show cursor
     // // Old cursor: this.graphic.Cursors.push(cursor);

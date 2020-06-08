@@ -435,6 +435,18 @@ export class InstrumentReader {
           if (this.isAttributesNodeAtEndOfMeasure(this.xmlMeasureList[this.currentXmlMeasureIndex], xmlNode)) {
             this.saveClefInstructionAtEndOfMeasure();
           }
+          const staffDetailsNode: IXmlElement = xmlNode.element("staff-details");
+          if (staffDetailsNode) {
+            const staffLinesNode: IXmlElement = staffDetailsNode.element("staff-lines");
+            if (staffLinesNode) {
+              let staffNumber: number = 1;
+              const staffNumberAttr: Attr = staffDetailsNode.attribute("number");
+              if (staffNumberAttr) {
+                staffNumber = parseInt(staffNumberAttr.value, 10);
+              }
+              this.instrument.Staves[staffNumber - 1].StafflineCount = parseInt(staffLinesNode.value, 10);
+            }
+          }
         } else if (xmlNode.name === "forward") {
           const forFraction: number = parseInt(xmlNode.element("duration").value, 10);
           currentFraction.Add(new Fraction(forFraction, 4 * this.divisions));
@@ -481,11 +493,9 @@ export class InstrumentReader {
           }
         } else if (xmlNode.name === "barline") {
           if (this.repetitionInstructionReader !== undefined) {
-           const measureEndsSystem: boolean = false;
-           this.repetitionInstructionReader.handleLineRepetitionInstructions(xmlNode, measureEndsSystem);
+           const measureEndsSystem: boolean = this.repetitionInstructionReader.handleLineRepetitionInstructions(xmlNode);
            if (measureEndsSystem) {
-             this.currentMeasure.BreakSystemAfter = true;
-             this.currentMeasure.endsPiece = true;
+             this.currentMeasure.HasEndLine = true;
            }
           }
           const location: IXmlAttribute = xmlNode.attribute("location");

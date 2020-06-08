@@ -207,6 +207,28 @@ export class VexFlowConverter {
                     xShift = rules.WholeRestXShiftVexflow * unitInPixels; // TODO find way to make dependent on the modifiers
                     // affects VexFlowStaffEntry.calculateXPosition()
                 }
+                if (note.sourceNote.ParentStaff.Voices.length > 1) {
+                    let visibleVoiceEntries: number = 0;
+                    //Find all visible voice entries (don't want invisible rests/notes causing visible shift)
+                    for (let idx: number = 0; idx < note.sourceNote.ParentStaffEntry.VoiceEntries.length ; idx++) {
+                        if (note.sourceNote.ParentStaffEntry.VoiceEntries[idx].Notes[0].PrintObject) {
+                            visibleVoiceEntries++;
+                        }
+                    }
+                    //If we have more than one visible voice entry, shift the rests so no collision occurs
+                    if (visibleVoiceEntries > 1) {
+                        switch (note.sourceNote.ParentVoiceEntry?.ParentVoice?.VoiceId) {
+                            case 1:
+                                keys = ["e/5"];
+                                break;
+                            case 2:
+                                keys = ["f/4"];
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
                 break;
             }
 
@@ -707,10 +729,10 @@ export class VexFlowConverter {
      * @returns {string}
      */
     public static font(fontSize: number, fontStyle: FontStyles = FontStyles.Regular,
-                       font: Fonts = Fonts.TimesNewRoman, rules: EngravingRules): string {
+                       font: Fonts = Fonts.TimesNewRoman, rules: EngravingRules, fontFamily: string = undefined): string {
         let style: string = "normal";
         let weight: string = "normal";
-        const family: string = "'" + rules.DefaultFontFamily + "'"; // default "'Times New Roman'"
+        let family: string = `'${rules.DefaultFontFamily}'`; // default "'Times New Roman'"
 
         switch (fontStyle) {
             case FontStyles.Bold:
@@ -737,8 +759,11 @@ export class VexFlowConverter {
             default:
         }
 
+        if (fontFamily && fontFamily !== "default") {
+            family = `'${fontFamily}'`;
+        }
 
-        return  style + " " + weight + " " + Math.floor(fontSize) + "px " + family;
+        return style + " " + weight + " " + Math.floor(fontSize) + "px " + family;
     }
 
     /**

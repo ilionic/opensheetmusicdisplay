@@ -22,7 +22,7 @@ import { AutoColorSet, GraphicalMusicPage } from "../MusicalScore";
 import jspdf = require("jspdf-yworks/dist/jspdf.min");
 import svg2pdf = require("svg2pdf.js/dist/svg2pdf.min");
 import { MusicPartManagerIterator } from "../MusicalScore/MusicParts";
-
+import { ITransposeCalculator } from "../MusicalScore/Interfaces";
 /**
  * The main class and control point of OpenSheetMusicDisplay.<br>
  * It can display MusicXML sheet music files in an HTML element container.<br>
@@ -117,7 +117,7 @@ export class OpenSheetMusicDisplay {
                 // Parse the string representing an xml file
                 const parser: DOMParser = new DOMParser();
                 content = parser.parseFromString(str, "application/xml");
-            } else if (str.length < 2083) {
+            } else if (str.length < 2083) { // TODO do proper URL format check
                 log.debug("[OSMD] Retrieve the file at the given URL: " + str);
                 // Assume now "str" is a URL
                 // Retrieve the file at the given URL
@@ -335,17 +335,7 @@ export class OpenSheetMusicDisplay {
         if (options.drawingParameters) {
             this.drawingParameters.DrawingParametersEnum =
                 (<any>DrawingParametersEnum)[options.drawingParameters.toLowerCase()];
-            if (this.drawingParameters.DrawingParametersEnum === DrawingParametersEnum.compacttight) {
-                // tight rendering mode, lower margins and safety distances between systems, staffs etc. may cause overlap.
-                // these options can afterwards be finetuned by setting osmd.rules.BetweenStaffDistance for example
-                this.rules.BetweenStaffDistance = 2.5;
-                this.rules.StaffDistance = 3.5;
-                this.rules.MinimumDistanceBetweenSystems = 1;
-                // this.rules.PageTopMargin = 0.0; // see this.rules.PageTopMarginNarrow used in compact mode
-                this.rules.PageBottomMargin = 1.0;
-                this.rules.PageLeftMargin = 2.0;
-                this.rules.PageRightMargin = 2.0;
-            }
+                // see DrawingParameters.ts: set DrawingParametersEnum, and DrawingParameters.ts:setForCompactTightMode()
         }
 
         const backendNotInitialized: boolean = !this.drawer || !this.drawer.Backends || this.drawer.Backends.length < 1;
@@ -376,7 +366,13 @@ export class OpenSheetMusicDisplay {
                 }
             }
         }
-
+        if (options.percussionOneLineCutoff !== undefined) {
+            this.rules.PercussionOneLineCutoff = options.percussionOneLineCutoff;
+        }
+        if (this.rules.PercussionOneLineCutoff !== 0 &&
+            options.percussionForceVoicesOneLineCutoff !== undefined) {
+            this.rules.PercussionForceVoicesOneLineCutoff = options.percussionForceVoicesOneLineCutoff;
+        }
         if (options.alignRests !== undefined) {
             this.rules.AlignRests = options.alignRests;
         }
@@ -412,6 +408,9 @@ export class OpenSheetMusicDisplay {
         }
         if (options.drawLyricist !== undefined) {
             this.drawingParameters.DrawLyricist = options.drawLyricist;
+        }
+        if (options.drawMetronomeMarks !== undefined) {
+            this.rules.MetronomeMarksDrawn = options.drawMetronomeMarks;
         }
         if (options.drawPartNames !== undefined) {
             this.drawingParameters.DrawPartNames = options.drawPartNames; // indirectly writes to EngravingRules
@@ -477,6 +476,9 @@ export class OpenSheetMusicDisplay {
         }
         if (options.defaultFontFamily) {
             this.rules.DefaultFontFamily = options.defaultFontFamily; // default "Times New Roman", also used if font family not found
+        }
+        if (options.defaultFontStyle) {
+            this.rules.DefaultFontStyle = options.defaultFontStyle; // e.g. FontStyles.Bold
         }
         if (options.drawUpToMeasureNumber) {
             this.rules.MaxMeasureToDrawIndex = options.drawUpToMeasureNumber - 1;
@@ -835,7 +837,8 @@ export class OpenSheetMusicDisplay {
         this.drawSkyLine = value;
         if (this.drawer) {
             this.drawer.skyLineVisible = value;
-            this.render();
+            // this.render(); // note: we probably shouldn't automatically render when someone sets the setter
+            //   this can cause a lot of rendering time.
         }
     }
     public get DrawSkyLine(): boolean {
@@ -846,7 +849,8 @@ export class OpenSheetMusicDisplay {
         this.drawBottomLine = value;
         if (this.drawer) {
             this.drawer.bottomLineVisible = value;
-            this.render();
+            // this.render(); // note: we probably shouldn't automatically render when someone sets the setter
+            //   this can cause a lot of rendering time.
         }
     }
     public get DrawBottomLine(): boolean {
@@ -883,6 +887,14 @@ export class OpenSheetMusicDisplay {
 
     public get FollowCursor(): boolean {
         return this.followCursor;
+    }
+
+    public set TransposeCalculator(calculator: ITransposeCalculator) {
+        MusicSheetCalculator.transposeCalculator = calculator;
+    }
+
+    public get TransposeCalculator(): ITransposeCalculator {
+        return MusicSheetCalculator.transposeCalculator;
     }
 
     public get Sheet(): MusicSheet {

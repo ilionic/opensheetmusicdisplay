@@ -27,6 +27,7 @@ import { VexFlowContinuousDynamicExpression } from "./VexFlowContinuousDynamicEx
 import { DrawingParameters } from "../DrawingParameters";
 import { GraphicalMusicPage } from "../GraphicalMusicPage";
 import { GraphicalMusicSheet } from "../GraphicalMusicSheet";
+import { GraphicalUnknownExpression } from "../GraphicalUnknownExpression";
 
 /**
  * This is a global constant which denotes the height in pixels of the space between two lines of the stave
@@ -222,7 +223,8 @@ export class VexFlowMusicSheetDrawer extends MusicSheetDrawer {
     private drawSampledLine(line: number[], startPosition: PointF2D, width: number, color: string = "#FF0000FF"): void {
         const indices: number[] = [];
         let currentValue: number = 0;
-
+        //Loops through bottom line, grabs all indices that don't equal the previously grabbed index
+        //Starting with 0 (gets index of all line changes)
         for (let i: number = 0; i < line.length; i++) {
             if (line[i] !== currentValue) {
                 indices.push(i);
@@ -314,24 +316,10 @@ export class VexFlowMusicSheetDrawer extends MusicSheetDrawer {
     protected drawOctaveShifts(staffLine: StaffLine): void {
         for (const graphicalOctaveShift of staffLine.OctaveShifts) {
             if (graphicalOctaveShift) {
+                const vexFlowOctaveShift: VexFlowOctaveShift = graphicalOctaveShift as VexFlowOctaveShift;
                 const ctx: Vex.IRenderContext = this.backend.getContext();
-                const textBracket: Vex.Flow.TextBracket = (graphicalOctaveShift as VexFlowOctaveShift).getTextBracket();
+                const textBracket: Vex.Flow.TextBracket = vexFlowOctaveShift.getTextBracket();
                 textBracket.setContext(ctx);
-                const startX: number = staffLine.PositionAndShape.AbsolutePosition.x + textBracket.start.getX() / 10;
-                const stopX: number = staffLine.PositionAndShape.AbsolutePosition.x + textBracket.stop.getX() / 10;
-                if ((<any>textBracket).position === Vex.Flow.TextBracket.Positions.TOP) {
-                    const headroom: number = staffLine.SkyBottomLineCalculator.getSkyLineMinInRange(startX, stopX);
-                    if (headroom === Infinity) { // will cause Vexflow error
-                        return;
-                    }
-                    textBracket.start.getStave().options.space_above_staff_ln = headroom;
-                } else {
-                    const footroom: number = staffLine.SkyBottomLineCalculator.getBottomLineMaxInRange(startX, stopX);
-                    if (footroom === Infinity) { // will cause Vexflow error
-                        return;
-                    }
-                    textBracket.start.getStave().options.space_below_staff_ln = footroom;
-                }
                 textBracket.draw();
             }
         }
@@ -355,13 +343,10 @@ export class VexFlowMusicSheetDrawer extends MusicSheetDrawer {
                 // // Draw Mood
                 // } else if (abstractGraphicalExpression instanceof GraphicalMoodExpression) {
                 //     GraphicalMoodExpression; graphicalMood = (GraphicalMoodExpression); abstractGraphicalExpression;
-                //     drawLabel(graphicalMood.GetGraphicalLabel, (int)GraphicalLayers.Notes);
-                // // Draw Unknown
-                // } else if (abstractGraphicalExpression instanceof GraphicalUnknownExpression) {
-                //     GraphicalUnknownExpression; graphicalUnknown =
-                //         (GraphicalUnknownExpression); abstractGraphicalExpression;
-                //     drawLabel(graphicalUnknown.GetGraphicalLabel, (int)GraphicalLayers.Notes);
-                // }
+                //     drawLabel(graphicalMood.GetGraphicalLabel, <number>GraphicalLayers.Notes);
+            // Draw Unknown
+            } else if (abstractGraphicalExpression instanceof GraphicalUnknownExpression) {
+                this.drawLabel(abstractGraphicalExpression.Label, <number>GraphicalLayers.Notes);
             } else {
                 log.warn("Unkown type of expression!");
             }
@@ -398,7 +383,7 @@ export class VexFlowMusicSheetDrawer extends MusicSheetDrawer {
     protected renderLabel(graphicalLabel: GraphicalLabel, layer: number, bitmapWidth: number,
                           bitmapHeight: number, heightInPixel: number, screenPosition: PointF2D): void {
         const height: number = graphicalLabel.Label.fontHeight * unitInPixels;
-        const { fontStyle, font, text } = graphicalLabel.Label;
+        const { font, text } = graphicalLabel.Label;
         let color: string;
         if (this.rules.ColoringEnabled) {
             color = graphicalLabel.Label.colorDefault;
@@ -406,7 +391,15 @@ export class VexFlowMusicSheetDrawer extends MusicSheetDrawer {
                 color = this.rules.DefaultColorLabel;
             }
         }
-        this.backend.renderText(height, fontStyle, font, text, heightInPixel, screenPosition, color);
+        let { fontStyle, fontFamily } = graphicalLabel.Label;
+        if (!fontStyle) {
+            fontStyle = this.rules.DefaultFontStyle;
+        }
+        if (!fontFamily) {
+            fontFamily = this.rules.DefaultFontFamily;
+        }
+        this.backend.renderText(height, fontStyle, font, text, heightInPixel, screenPosition, color, graphicalLabel.Label.fontFamily);
+        // font currently unused, replaced by fontFamily
     }
 
     /**
